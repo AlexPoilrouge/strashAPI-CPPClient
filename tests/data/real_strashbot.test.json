@@ -1,0 +1,13 @@
+{
+    "api-info": {
+        "url": "https://strashbot.fr",
+        "root": "kart"
+    },
+    "endpoints": {
+        "token": "t0k€nlol",
+        
+        "info": {
+            "path": "info"
+        }
+    }
+}

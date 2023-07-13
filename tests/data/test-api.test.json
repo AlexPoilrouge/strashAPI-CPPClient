@@ -1,0 +1,20 @@
+{
+    "api-info": {
+        "url": "testapi",
+        "port": 8080
+    },
+    "endpoints": {
+        "simpleGet": {
+            "path": "simple_get1"
+        },
+        "paramGet": {
+            "path": "get_param_read"
+        },
+        "bodyPut": {
+            "path": "put/bodyTest"
+        },
+        "headerPost": {
+            "path": "post/headerTest"
+        }
+    }
+}

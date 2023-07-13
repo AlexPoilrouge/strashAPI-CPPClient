@@ -1,0 +1,20 @@
+{
+    "api-info": {
+        "url": "https://bogus.fr",
+        "root": "coolapi",
+        "port": 1534
+    },
+    "endpoints": {
+        "token": "t0k€nlol",
+        
+        "user-get": {
+            "path": "user"
+        },
+
+        "whatsup": {
+            "path": "what/is/up",
+            "token": "w@zzzzuuuuuup",
+            "method": "post"
+        }
+    }
+}

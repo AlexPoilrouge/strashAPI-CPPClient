@@ -1,0 +1,14 @@
+{
+    "api-info": {
+        "url": "https://strashbot.fr",
+        "root": "api",
+        "port": 0
+    },
+    "endpoints": {
+        "token": "",
+        
+        "user-get": {
+            "path": "user"
+        }
+    }
+}

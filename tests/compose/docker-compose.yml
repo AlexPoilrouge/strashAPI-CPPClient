@@ -1,0 +1,29 @@
+services:
+  test-api:
+    image: testapi:0.0.0
+    build:
+      context: ./test-api
+      dockerfile: Dockerfile
+    container_name: test-api
+    ports:
+      - "8080:8080"
+    volumes:
+      - locker:/app/locker
+
+  strash-cpp-api-client:
+    image: strashcppapiclient:0.0.0
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+      args:
+        COMPOSE_TEST: true
+        CPP_DEBUG: false
+    container_name: strashapi-cpp-client
+    links:
+      - "test-api:testapi"
+    volumes:
+      - locker:/app/locker
+    stdin_open: true 
+    tty: true
+volumes:
+  locker:
