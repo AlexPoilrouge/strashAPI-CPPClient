@@ -22,6 +22,7 @@ namespace API {
 class RequestFactory;
 class Client;
 class Infos;
+class ThreadPool;
 
 class Request;
 class ResponseHandler;
@@ -33,8 +34,11 @@ struct Response {
     std::shared_ptr<Request> spawner;
 
     static inline Response create(std::string bodyString, unsigned int status_code, std::shared_ptr<Request> req){
-        std::cout << "bdystring be like '"<<bodyString<<"'\n";
         return {json::parse(bodyString), status_code, req};
+    }
+
+    inline bool isClientError() const {
+        return responseBody.contains("client_error");
     }
 };
 
@@ -42,37 +46,24 @@ struct Response {
 class Request {
     friend Client;
     friend RequestFactory;
-protected:
-    struct Body{
-        inline Body(Request* parent) : parent(parent) {}
-
-        Body& operator<<(const json& json);
-        inline Body& operator<<(const std::string& json_string){
-            return (*this) << json::parse(json_string);
-        }
-        inline Body& operator<<(const char* json_string){
-            return (*this) << json::parse(json_string);
-        }
-        inline Body& operator<<(std::ifstream json_file){
-            return (*this) << json::parse(json_file);
-        }
-
-        inline std::string operator*(){
-            return this->parent->body_str;
-        }
-    private:
-        Request* parent;
+    friend ThreadPool;
+public:
+    enum TokenChannel {
+        BODY,
+        HEADER,
+        QUERY_PARAM
     };
-    friend Body;
-
+protected:
     using QueryParameters= std::map<std::string, std::string>;
     using Headers= std::map<std::string, std::string>;
+    using TokenPayload= std::unordered_map<std::string, std::string>;
 
 private:
-
     QueryParameters _queryParams;
     Headers _headers;
-    Body _body;
+    TokenPayload _tokenPayload;
+    TokenChannel _tokenChannel= TokenChannel::BODY;
+    json _body;
     std::string endpoint;
 
     unsigned int request_id= 0;
@@ -81,12 +72,15 @@ private:
     static unsigned int id;
 
 public:
-    inline Request(boost::beast::http::verb verb= boost::beast::http::verb::get) : verb(verb), _body(this), request_id(++Request::id) {}
+    inline Request(boost::beast::http::verb verb= boost::beast::http::verb::get) : verb(verb), request_id(++Request::id) {}
     inline Request(const Request& r) = default;
 
-    inline Body& body(){return this->_body;}
+    inline json& body(){return this->_body;}
     inline QueryParameters& queryParameters(){return this->_queryParams;}
     inline Headers& headers(){return this->_headers;}
+    inline TokenPayload& tokenPayload(){return this->_tokenPayload;}
+    inline void setTokenChannel(TokenChannel tc){this->_tokenChannel= tc;}
+    inline TokenChannel getTokenChannel() const {return this->_tokenChannel;}
 
     inline void setEndpoint(const std::string& ep){
         this->endpoint= ep;
@@ -106,8 +100,6 @@ public:
 
 protected:
     boost::beast::http::verb verb= boost::beast::http::verb::get;
-
-    std::string body_str;
 
     std::shared_ptr<ResponseHandler> responder= nullptr;
 

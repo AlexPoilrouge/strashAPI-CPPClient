@@ -13,7 +13,7 @@
 
         "whatsup": {
             "path": "what/is/up",
-            "token": "w@zzzzuuuuuup",
+            "token":  {"signature": "w@zzzzuuuuuup"},
             "method": "post"
         }
     }

@@ -32,6 +32,10 @@ public:
         std::shared_ptr< std::function< void(const Response& response) > > f
     );
 
+    static inline QueryPair create(
+         std::shared_ptr< std::function< void(const Response& response) > > f
+    ){ return QueryPairFactory::create( RequestVerb::unknown, f); }
+
     inline static QueryPair create( std::shared_ptr<Request> req, std::shared_ptr<ResponseHandler> rh){
         return std::make_pair(req, rh);
     }

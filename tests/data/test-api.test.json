@@ -15,6 +15,12 @@
         },
         "headerPost": {
             "path": "post/headerTest"
+        },
+        "tokenBodyPut": {
+            "path": "put/tokenBodyTest",
+            "token": {
+                "key_file": "/app/keys/private.key"
+            }
         }
     }
 }

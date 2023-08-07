@@ -28,10 +28,12 @@ set(TEST_SOURCES
     src/test_simpleStrashBotRealGetRequest.cpp
     src/test_apiCompose.cpp
     src/test_query.cpp
+    src/test_error.cpp
 )
 set(TEST_HEADERS
     includes/test_simpleStrashBotRealGetRequest.h
     includes/test_apiCompose.h
+    includes/test_error.h
 )
 
 add_executable( ${TestExeName}
@@ -74,7 +76,7 @@ endif (CMAKE_BUILD_TYPE MATCHES Debug)
 if (TEST_COMPOSE)
     add_custom_target(run_tests
     # Set the command to run when the target is built
-    COMMAND bash -c "${CMAKE_CURRENT_SOURCE_DIR}/misc/wait_lock.compose.sh ${TestExeCmd}"
+    COMMAND bash -c "${CMAKE_CURRENT_SOURCE_DIR}/misc/wait_lock.compose.sh ${CMAKE_BUILD_TYPE} ${TestExeCmd}"
     VERBATIM
     # Set the working directory for the command
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}

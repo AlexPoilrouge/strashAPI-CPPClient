@@ -1,6 +1,9 @@
 
 #include "QueryFactory.h"
 #include "../includes/ApiClient.h"
+#include "../includes/errors.h"
+
+#include <boost/asio/use_future.hpp>
 
 #include <sstream>
 namespace api= StrashBot::API;
@@ -34,6 +37,7 @@ boost::beast::tcp_stream api::Client::prepareRequest(boost::asio::io_context& io
 
     const auto results= resolver.resolve(domain, std::to_string(port)); // Look up the domain name
 
+    stream.expires_after(std::chrono::seconds(QueryTimeout));
     stream.connect(results);    // Make the connection on the IP address we get from a lookup
 
     return std::move(stream);
@@ -56,14 +60,20 @@ boost::beast::ssl_stream<boost::beast::tcp_stream> api::Client::prepareSSLReques
     boost::asio::ip::tcp::resolver resolver(ioc);
     boost::beast::ssl_stream<boost::beast::tcp_stream> stream(ioc, ctx);
 
+
     // Look up the domain name
     auto const results = resolver.resolve(domain, std::to_string(port));
-
     // Make the connection on the IP address we get from a lookup
-    boost::beast::get_lowest_layer(stream).connect(results);
-
-    // Perform the SSL handshake
-    stream.handshake(boost::asio::ssl::stream_base::client);
+    auto& lowest_layer= boost::beast::get_lowest_layer(stream);
+    lowest_layer.expires_after(std::chrono::seconds(QueryTimeout));
+    auto Future = lowest_layer.async_connect(results, boost::asio::use_future);
+    if(Future.wait_for(std::chrono::seconds(QueryTimeout)) == std::future_status::timeout){
+        throw api::ConnectTimeoutException(domain, port);
+    }
+    else{
+        // Perform the SSL handshake
+        stream.handshake(boost::asio::ssl::stream_base::client);
+    }
 
     return std::move(stream);
 }

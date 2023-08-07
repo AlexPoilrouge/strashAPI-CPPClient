@@ -1,6 +1,7 @@
 #include "ThreadPool.h"
 #include "ApiClient.h"
 #include "Query.h"
+#include "errors.h"
 
 #include <functional>
 
@@ -35,11 +36,40 @@ api::ThreadPool::ThreadPool(api::Client* client, size_t nbThreads) : stop(false)
                     request= requests.front();
                     this->requests.pop();
                 }
+                try{
+                    this->apiClient->processRequest(request);
+                }
+                catch(api::ConnectTimeoutException e){
+                    auto response= api::Response::create(
+                        "{\"client_error\": \"connection_timeout\"}",
+                        0, request);
 
-                this->apiClient->processRequest(request);
+                    if(request->responder){
+                        request->responder->processResponse(response);
+                    }
+                }
+                catch(boost::beast::system_error e){
+                    auto response= api::Response::create(
+                        std::string("{\"client_error\": \"api_comm_error\", \"info\": \"")+e.what()+"\"}",
+                        0, request
+                    );
+
+                    if(request->responder){
+                        request->responder->processResponse(response);
+                    }
+                }
+                catch(std::exception err){
+                    auto response= api::Response::create(
+                        std::string("{\"client_error\": \"error\", \"info\": \"")+err.what()+"\"}",
+                        0, request
+                    );
+
+                    if(request->responder){
+                        request->responder->processResponse(response);
+                    }
+                }
             }
         });
-
         this->workers.emplace_back(std::move(worker));
     }
 }

@@ -24,6 +24,8 @@ namespace API {
 
 using QueryPair = std::pair<std::shared_ptr<Request>, std::shared_ptr<ResponseHandler> >;
 
+constexpr unsigned int QueryTimeout= 10;
+
 class Client{
     friend ThreadPool;
 public:

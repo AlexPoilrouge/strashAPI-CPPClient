@@ -23,7 +23,9 @@ TEST(Query_test, basicCreateQueryTest){
         }
     )");
 
-    req->body() << source_json;
-    EXPECT_EQ(source_json.dump(), *req->body());
+    req->body()= source_json;
+//    EXPECT_EQ(source_json.dump(), *req->body());
+    EXPECT_EQ(req->body()["field1"], 5);
+    EXPECT_EQ(req->body()["field2"], "yes");
 }
 

@@ -1,0 +1,13 @@
+{
+    "api-info": {
+        "url": "http://fakingfakefaker.lol",
+        "root": "shitapi",
+        "port": 8343
+    },
+    "endpoints": {
+        "whatsup": {
+            "path": "btch/plz",
+            "method": "get"
+        }
+    }
+}

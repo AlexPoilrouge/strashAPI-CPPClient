@@ -19,6 +19,8 @@ TEST_F(_TestApiCompose, simpleGet1){
                 std::unique_lock lock(m);
                 cv.wait(lock, [&](){return queryStep>0;});
 
+                std::cout << "got code " << response.status_code << " on: \n\t" << response.responseBody.dump();
+                std::cout.flush();
                 status_code= response.status_code;
                 result_value= response.responseBody["result"];
 
@@ -114,7 +116,7 @@ TEST_F(_TestApiCompose, requestBody1){
     );
     query_pair.first->setEndpoint("bodyPut");
 
-    query_pair.first->body() << json::parse(R"(
+    query_pair.first->body()= json::parse(R"(
         {
             "param": "yolo"
         }
@@ -176,6 +178,47 @@ TEST_F(_TestApiCompose, postHeader1){
 
     EXPECT_EQ(status_code, 200);
     EXPECT_EQ(resp["result"], "confirmed pico-bello");
+}
+
+TEST_F(_TestApiCompose, putToken1){
+    std::mutex m;
+    std::condition_variable cv;
+    unsigned int queryStep= 0;
+
+    json resp;
+    unsigned int status_code= 0;
+
+    auto query_pair= StrashBot::API::QueryPairFactory::create(
+        StrashBot::API::RequestVerb::put,
+        std::make_shared<StrashBot::API::ResponseHandler::TaskFunctionType>(
+            [&](const StrashBot::API::Response& response){
+                std::unique_lock lock(m);
+                cv.wait(lock, [&](){return queryStep>0;});
+
+                status_code= response.status_code;
+                resp= response.responseBody;
+
+                queryStep= 2;
+
+                cv.notify_one();
+            }
+        )
+    );
+
+    query_pair.first->setEndpoint("tokenBodyPut");
+    
+    {
+        this->client->submit(query_pair.first);
+        queryStep= 1;
+
+        cv.notify_one();
+
+        std::unique_lock lock(m);
+        cv.wait(lock, [&](){return queryStep>1;});
+    }
+
+    EXPECT_EQ(status_code, 200);
+    EXPECT_EQ(resp["result"], "ok with token");
 }
 
 #endif //TESTWITHCOMPOSE

@@ -16,21 +16,19 @@ TEST(ConfigReader_test, bogusConfigLoad){
     EXPECT_TRUE(apiInfo.ssl);
 
     EXPECT_EQ(apiInfo.endpoints["user-get"].path, "user");
-    EXPECT_EQ(*apiInfo.endpoints["user-get"].token, "t0k€nlol");
+    EXPECT_EQ(apiInfo.endpoints["user-get"].token->signature(), "t0k€nlol");
     EXPECT_EQ(apiInfo.endpoints["user-get"].verb, StrashBot::API::RequestVerb::get);
 
     EXPECT_EQ(apiInfo.endpoints["whatsup"].path, "what/is/up");
-    EXPECT_EQ(*apiInfo.endpoints["whatsup"].token, "w@zzzzuuuuuup");
+    EXPECT_EQ(apiInfo.endpoints["whatsup"].token->signature(), "w@zzzzuuuuuup");
     EXPECT_EQ(apiInfo.endpoints["whatsup"].verb, StrashBot::API::RequestVerb::post);
 
     EXPECT_EQ(apiInfo.getServerBaseUrl(), "bogus.fr:1534");
     EXPECT_EQ(apiInfo.getRootUrl(), "bogus.fr:1534/coolapi");
     auto userget= apiInfo.getEndpointUrl("user-get");
-    EXPECT_EQ(userget.first, "bogus.fr:1534/coolapi/user");
-    EXPECT_EQ(userget.second, "t0k€nlol");
+    EXPECT_EQ(userget, "bogus.fr:1534/coolapi/user");
     auto whatsup= apiInfo.getEndpointUrl("whatsup");
-    EXPECT_EQ(whatsup.first, "bogus.fr:1534/coolapi/what/is/up");
-    EXPECT_EQ(whatsup.second, "w@zzzzuuuuuup");
+    EXPECT_EQ(whatsup, "bogus.fr:1534/coolapi/what/is/up");
 }
 
 TEST(ConfigReader_test, empty){

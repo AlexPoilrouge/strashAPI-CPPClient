@@ -14,4 +14,11 @@ while [ ! -f "${LOCK_FILE_ABS_PATH}" ]; do
 done
 echo -e "\tGo!"
 
+BUILD_TYPE="$1"
+shift;
+
 $@
+
+if [ "${BUILD_TYPE,,}" != "debug" ]; then
+    curl "http://testapi:8080/stop"
+fi

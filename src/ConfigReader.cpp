@@ -1,19 +1,22 @@
 #include "../includes/ConfigReader.h"
 
+#include "../includes/errors.h"
+
 #include <iostream>
 #include <fstream>
 
-#include <nlohmann/json.hpp>
 
 namespace api= StrashBot::API;
-
-using json= nlohmann::json;
 
 #define KEYNAME_API_INFO "api-info"
 #define KEYNAME_ENDPOINTS "endpoints"
 #define KEYNAME_TOKEN "token"
 #define KEYNAME_PATH "path"
 #define KEYNAME_METHOD "method"
+#define KEYNAME_TOKEN_SIGNATURE "signature"
+#define KEYNAME_TOKEN_ALGORITHM "algorithm"
+#define KEYNAME_TOKEN_KEY_STRING "key"
+#define KEYNAME_TOKEN_KEY_FILE "key_file"
 
 void _basicInfosSet(api::Infos& infos, const json& j){
     std::string url= j[KEYNAME_API_INFO]["url"];
@@ -46,9 +49,17 @@ void _endpointsInfoSet(api::Infos& infos, const json& j){
     if(j.contains(KEYNAME_ENDPOINTS)){
         json jep= j[KEYNAME_ENDPOINTS];
 
-        std::shared_ptr<std::string> main_token;
+        std::shared_ptr<api::TokenHandler> main_token;
         if(jep.contains(KEYNAME_TOKEN)){
-            main_token= std::make_shared<std::string>(jep[KEYNAME_TOKEN]);
+            try{
+                main_token= api::TokenHandler::createFromJSONData(jep[KEYNAME_TOKEN]);
+            }
+            catch(api::BadTokenKeyFilePathForJWT e){
+                throw e;
+            }
+            catch(std::exception e){
+                throw api::TokenReadingError(e);
+            }
         }
         api::RequestVerb verb= api::RequestVerb::get;
         
@@ -62,7 +73,15 @@ void _endpointsInfoSet(api::Infos& infos, const json& j){
             ep.path= value[KEYNAME_PATH];
 
             if(value.contains(KEYNAME_TOKEN)){
-                ep.token= std::make_shared<std::string>(value[KEYNAME_TOKEN]);
+                try{
+                    ep.token= api::TokenHandler::createFromJSONData(value[KEYNAME_TOKEN]);
+                }
+                catch(api::BadTokenKeyFilePathForJWT e){
+                    throw e;
+                }
+                catch(std::exception e){
+                    throw api::TokenReadingError(e);
+                }
             }
             else{
                 ep.token= main_token;
@@ -85,42 +104,97 @@ void _endpointsInfoSet(api::Infos& infos, const json& j){
 }
 
 api::Infos api::readFromJsonFile(const std::string& jsonFilePath, bool exceptionThrow){
-    std::ifstream ifs(jsonFilePath);
-    json jf= json::parse(ifs);
+    if((!api::fileExists(jsonFilePath)) && exceptionThrow){
+        throw api::NonExistantConfigFileException(jsonFilePath);
+    }
 
     api::Infos infos;
-    if(!exceptionThrow){
-        try{
-            _basicInfosSet(infos, jf);
 
-            _endpointsInfoSet(infos, jf);
-        }
-        catch (const std::exception& e){
-            std::cout   << "Error reading basic infos for StrashBot::API from setting file '"
-                        << jsonFilePath << "' : " << e.what() << '\n';
-        }
-    }
-    else{
+    try{
+        std::ifstream ifs(jsonFilePath);
+        json jf= json::parse(ifs);
+
         _basicInfosSet(infos, jf);
 
         _endpointsInfoSet(infos, jf);
+    }
+    catch(json::exception e){
+        if(exceptionThrow) throw api::ConfigJSONParsingError(e, jsonFilePath);
+        else std::cerr  << "Error parsin basic JSON infos for StrashBot::API from setting file '"
+                        << jsonFilePath << "' : " << e.what() << '\n';
+    }
+    catch (api::BadTokenKeyFilePathForJWT e){
+        if(exceptionThrow) throw e;
+        else std::cerr  << "Error reading token infos for StrashBot::API from setting file '"
+                      << jsonFilePath << "' : " << e.what() << '\n';
+    }
+    catch (std::exception e){
+        if(exceptionThrow) throw api::BadReadConfigFileException(e, jsonFilePath);
+        else std::cerr  << "Error reading basic infos for StrashBot::API from setting file '"
+                      << jsonFilePath << "' : " << e.what() << '\n';
     }
 
     return infos;
 }
 
-
-std::pair<std::string, std::string> api::Infos::getEndpointUrl(const std::string& endpointName){
-    if(this->endpoints.find(endpointName)==this->endpoints.end()) return std::make_pair("","");
-
-    EndPoint ep= this->endpoints[endpointName];
-
-    return std::make_pair(
-        this->getRootUrl()+'/'+ep.path,
-        (ep.token)?*ep.token:""
-    );
-}
-
 void _invoke_readFromJsonFile(std::promise<api::Infos>&& inPromise, const std::string& jsonFilePath){
     inPromise.set_value(api::readFromJsonFile(jsonFilePath));
+}
+
+
+std::string api::WithKeyString_TokenHandler::signature(api::TokenHandler::Payload payload) const {
+    jwt::jwt_object obj {this->_algo, jwt::params::payload(payload), jwt::params::secret(this->_key)};
+
+    return obj.signature();
+}
+
+api::WithKeyFile_TokenHandler::WithKeyFile_TokenHandler(const std::string& keyfilePath, const jwt::params::detail::algorithm_param& algorithm)
+    : _path(keyfilePath), _algo(algorithm)
+{
+    if((!api::fileExists(keyfilePath))){
+        throw api::BadTokenKeyFilePathForJWT(keyfilePath);
+    }
+
+    std::ifstream ifs(this->_path);
+    this->_key.assign( (std::istreambuf_iterator<char>(ifs)), (std::istreambuf_iterator<char>()) );
+}
+
+std::string api::WithKeyFile_TokenHandler::signature(api::TokenHandler::Payload payload) const {
+    jwt::jwt_object obj {this->_algo, jwt::params::payload(payload), jwt::params::secret(this->_key)};
+
+    return obj.signature();
+}
+
+std::shared_ptr<api::TokenHandler> api::TokenHandler::createFromJSONData(const json& json_data) {
+    jwt::params::detail::algorithm_param algo {"RS256"};
+    if(json_data.contains(KEYNAME_TOKEN_ALGORITHM)){
+        algo= jwt::algorithm {json_data[KEYNAME_TOKEN_ALGORITHM]};
+    }
+    if(json_data.is_string()){
+        return std::shared_ptr<api::TokenHandler>(
+            new api::FromString_TokenHandler(json_data.get<const json::string_t*>()->c_str())
+        );
+    }
+    else if(json_data.contains(KEYNAME_TOKEN_SIGNATURE)){
+        return std::shared_ptr<api::TokenHandler>(
+            new api::FromString_TokenHandler(json_data[KEYNAME_TOKEN_SIGNATURE])
+        );
+    }
+    else if(json_data.contains(KEYNAME_TOKEN_KEY_STRING)){
+        return std::shared_ptr<api::TokenHandler>(
+            new api::WithKeyString_TokenHandler(
+                json_data[KEYNAME_TOKEN_KEY_STRING],
+                algo
+            )
+        );
+    }
+    else if(json_data.contains(KEYNAME_TOKEN_KEY_FILE)){
+        return std::shared_ptr<api::TokenHandler>(
+            new api::WithKeyFile_TokenHandler(
+                json_data[KEYNAME_TOKEN_KEY_FILE],
+                algo
+            )
+        );
+    }
+    else return nullptr;
 }

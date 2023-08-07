@@ -1,0 +1,16 @@
+{
+    "api-info": {
+        "url": "https://bogus.fr",
+        "root": "coolapi",
+        "port": 1534
+    },
+    "endpoints": {
+        "token": {
+            "key_file" : "/app/keys/missing.key"
+        },
+
+        "meh": {
+            "path": "lmao"
+        }
+    }
+}
